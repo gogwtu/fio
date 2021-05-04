@@ -240,6 +240,9 @@ struct thread_data {
 	pid_t pid;
 	char *orig_buffer;
 	size_t orig_buffer_size;
+
+	char *orig_buffer_unalign;//@ayu:为了让返回的缓冲区页面对齐，多分配了一个页面，在此将它保存起来，最后释放时将完整的缓冲区释放掉
+	
 	volatile int runstate;
 	volatile bool terminate;
 	bool last_was_sync;
