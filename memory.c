@@ -195,7 +195,10 @@ static void free_mem_mmap(struct thread_data *td, size_t total_mem)
 	}
 }
 
-static int alloc_mem_malloc(struct thread_data *td, size_t total_mem)
+//@ayu:默认的malloc()分配的缓冲区并不是页面对齐的
+//会导致ADPP的页面映射特别麻烦
+//所以模仿iozone的代码,多分配一个PAGE_SIZE,然后将缓冲区地址对齐后返回给用户
+/*static int alloc_mem_malloc(struct thread_data *td, size_t total_mem)
 {
 	td->orig_buffer = malloc(total_mem);
 	dprint(FD_MEM, "malloc %llu %p\n", (unsigned long long) total_mem,
@@ -208,7 +211,28 @@ static void free_mem_malloc(struct thread_data *td)
 {
 	dprint(FD_MEM, "free malloc mem %p\n", td->orig_buffer);
 	free(td->orig_buffer);
+}*/
+//@ayu:下面是修改后的版本
+static int alloc_mem_malloc(struct thread_data *td, size_t total_mem)
+{
+	td->orig_buffer_unalign = malloc(total_mem + 4096);
+
+  td->orig_buffer = (char *)(((long)td->orig_buffer_unalign + 4096) & (long)~(4096 - 1));
+
+	dprint(FD_MEM, "malloc %llu %p\n", (unsigned long long) total_mem,
+							td->orig_buffer);
+
+	return td->orig_buffer == NULL;
 }
+
+static void free_mem_malloc(struct thread_data *td)
+{
+	dprint(FD_MEM, "free malloc mem %p\n", td->orig_buffer);
+	//free(td->orig_buffer);
+	free(td->orig_buffer_unalign);
+  td->orig_buffer = NULL;
+}
+//@ayu:end
 
 static int alloc_mem_cudamalloc(struct thread_data *td, size_t total_mem)
 {
